@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import os
 from dotenv import load_dotenv
+from urllib.parse import urlparse, parse_qsl
 
 load_dotenv()  # Loads variables from .env
 
@@ -88,12 +89,43 @@ WSGI_APPLICATION = 'ayush_project.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# ---------- DATABASE CONFIG ----------
+# Use Neotech (PostgreSQL) database if DATABASE_URL is provided, otherwise use SQLite locally
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
+if DATABASE_URL:
+    # Use PostgreSQL from DATABASE_URL (for Neotech, Render, Railway, etc.)
+    try:
+        parsed = urlparse(DATABASE_URL)
+        DATABASES = {
+            "default": {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': parsed.path.lstrip('/'),
+                'USER': parsed.username,
+                'PASSWORD': parsed.password,
+                'HOST': parsed.hostname,
+                'PORT': parsed.port or 5432,
+                'OPTIONS': dict(parse_qsl(parsed.query)) if parsed.query else {},
+            }
+        }
+        print(f"✅ Using PostgreSQL database: {parsed.hostname}/{parsed.path.lstrip('/')}")
+    except Exception as e:
+        print(f"❌ Error parsing DATABASE_URL: {e}. Falling back to SQLite.")
+        DATABASES = {
+            "default": {
+                "ENGINE": "django.db.backends.sqlite3",
+                "NAME": BASE_DIR / "db.sqlite3",
+            }
+        }
+else:
+    # Use SQLite locally (when DATABASE_URL is not set)
+    print("⚠️  DATABASE_URL not set. Using local SQLite database.")
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
     }
-}
 
 
 # Password validation
