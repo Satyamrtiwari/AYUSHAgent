@@ -542,7 +542,7 @@ footer {
   flex-wrap: wrap;
   gap: 1rem;
   color: var(--muted);
-  }
+}
 
 .footer-bottom p {
   margin: 0;
@@ -582,7 +582,7 @@ html[data-theme="light"] .nav {
 
 html[data-theme="light"] .nav nav a {
   color: rgba(15, 11, 28, 0.7);
-}
+  }
 
 html[data-theme="light"] .hero,
 html[data-theme="light"] .workflow-section,
@@ -632,7 +632,7 @@ html[data-theme="light"] .button-link.ghost {
 
 html[data-theme="light"] button.theme-toggle {
   background: rgba(255, 255, 255, 0.9);
-}
+  }
 
 html[data-theme="light"] .workflow-card h3,
 html[data-theme="light"] .feature-card h3,
@@ -653,7 +653,7 @@ html[data-theme="light"] .usecase-card h3 {
 
   .hero {
     padding: 3rem 1.5rem;
-  }
+}
 
   .footer-content {
     grid-template-columns: 1fr;

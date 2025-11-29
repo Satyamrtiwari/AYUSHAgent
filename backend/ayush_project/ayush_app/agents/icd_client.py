@@ -15,8 +15,10 @@ else:
 
 ICD_CLIENT_ID = os.getenv("ICD_CLIENT_ID")
 ICD_CLIENT_SECRET = os.getenv("ICD_CLIENT_SECRET")
-ICD_TOKEN_URL = os.getenv("ICD_TOKEN_URL")
-ICD_SEARCH_URL = os.getenv("ICD_SEARCH_URL")
+ICD_TOKEN_URL = os.getenv("ICD_TOKEN_URL", "https://icdaccessmanagement.who.int/connect/token")
+# Use the correct search URL matching the working ICD_api_key.py script
+# Force the correct URL (matching user's working script)
+ICD_SEARCH_URL = "https://id.who.int/icd/release/11/2024-01/mms/search"
 ICD_API_VERSION = os.getenv("ICD_API_VERSION", "v2")
 
 DEFAULT_TIMEOUT = 10  # seconds
@@ -78,9 +80,18 @@ class ICD11Client:
     def search(self, query):
         """
         Returns list of dicts with code, title, description, and raw data.
-        Uses POST with form-data (as per WHO API requirements).
+        Uses POST with form-data (exactly matching the working ICD_api_key.py script).
         """
         try:
+            # Verify credentials and URL are loaded
+            if not ICD_CLIENT_ID or not ICD_CLIENT_SECRET:
+                print(f"❌ ICD API credentials missing: CLIENT_ID={bool(ICD_CLIENT_ID)}, CLIENT_SECRET={bool(ICD_CLIENT_SECRET)}")
+                return []
+            
+            if not ICD_SEARCH_URL:
+                print(f"❌ ICD_SEARCH_URL not configured")
+                return []
+            
             if not self._token_ok():
                 self._fetch_token()
 
@@ -89,28 +100,47 @@ class ICD11Client:
                 "API-Version": ICD_API_VERSION,
                 "Accept-Language": "en",
                 "Accept": "application/json",
-                "Content-Type": "application/x-www-form-urlencoded"  # Important: form-data
+                "Content-Type": "application/x-www-form-urlencoded"  # Important: form-data (not JSON)
             }
             
-            # Use POST with form-data (as in your test script)
+            # Use POST with form-data (exactly as in working ICD_api_key.py)
             body = {
                 "q": query,
                 "chapterFilter": "mms"
             }
             
             print(f"🔍 Searching ICD-11 API for: '{query}'")
+            print(f"   URL: {ICD_SEARCH_URL}")
             r = requests.post(ICD_SEARCH_URL, headers=headers, data=body, timeout=DEFAULT_TIMEOUT)
 
             if r.status_code == 401:
-                # try refreshing once
+                # Token expired - refresh once
                 print("🔄 Token expired, refreshing...")
                 self._fetch_token()
                 headers["Authorization"] = f"Bearer {self._token}"
                 r = requests.post(ICD_SEARCH_URL, headers=headers, data=body, timeout=DEFAULT_TIMEOUT)
 
-            r.raise_for_status()
+            if r.status_code != 200:
+                print(f"❌ ICD Search error {r.status_code}: {r.text[:200]}")
+                return []
+
             data = r.json()
+            
+            # Debug: Check what the API actually returned
+            if not data:
+                print(f"⚠️ ICD API returned empty JSON for '{query}'")
+                return []
+            
             ents = data.get("destinationEntities", [])
+            
+            # Debug: Log raw response structure
+            if not ents:
+                print(f"⚠️ ICD API returned 0 results for '{query}'")
+                print(f"   Response keys: {list(data.keys())}")
+                if "destinationEntities" in data:
+                    print(f"   destinationEntities type: {type(data['destinationEntities'])}")
+                return []
+            
             out = []
             for e in ents[:10]:  # Get more results to allow better prioritization
                 title = clean_html(e.get("title", ""))
@@ -124,6 +154,7 @@ class ICD11Client:
                         "description": description,  # Add description
                         "raw": e
                     })
+            
             print(f"✅ ICD API returned {len(out)} results for '{query}'")
             return out
         except requests.RequestException as e:
@@ -137,4 +168,6 @@ class ICD11Client:
         except Exception as e:
             # unexpected error — log and return empty
             print(f"❌ ICD API unexpected error for '{query}': {str(e)}")
+            import traceback
+            print(traceback.format_exc())
             return []
