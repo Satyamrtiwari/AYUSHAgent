@@ -399,12 +399,14 @@ class MappingAgent:
                 for csv_cand in csv_results["candidates"]:
                     if not any(c["code"] == csv_cand["code"] for c in all_candidates):
                         all_candidates.append(csv_cand)
-            
+
             needs_review = len(all_candidates) > 1
             review_reason = None
             if len(all_icd_results) > 1:
-                review_reason = f"ICD API returned {len(all_icd_results)} results. Please select the most appropriate ICD-11 code."
-            
+                review_reason = (
+                    f"ICD API returned {len(all_icd_results)} results. Please select the most appropriate ICD-11 code."
+                )
+
             print(f"✅ Using ICD API results (primary) with {len(all_icd_results)} ICD candidates")
             return {
                 "candidates": all_candidates,
@@ -412,24 +414,29 @@ class MappingAgent:
                 "needs_manual_review": needs_review,
                 "manual_review_reason": review_reason,
                 "english_translation": simple_term,
-                "detailed_translation": detailed_term
+                "detailed_translation": detailed_term,
             }
-        else:
-            # ICD API returned no results - fallback to CSV
-            if csv_results and csv_results.get("candidates"):
-                print(f"⚠️ ICD API returned 0 results, falling back to CSV with {len(csv_results['candidates'])} candidates")
-                return {
-                    "candidates": csv_results["candidates"],
-                    "mapping_source": "deterministic",
-                    "needs_manual_review": csv_results.get("needs_review", False),
-                    "manual_review_reason": csv_results.get("review_reason") or "ICD API returned 0 results. Using CSV fallback.",
-                    "english_translation": None,
-                    "detailed_translation": detailed_term
-                }
-            else:
-                # No results from either source
-                print(f"❌ No results from ICD API or CSV")
-                return {
-                    "candidates": [],
-                    "mapping_source": "unknown"
-                }
+
+        # ICD API returned no results - fallback to CSV
+        if csv_results and csv_results.get("candidates"):
+            print(f"⚠️ ICD API returned 0 results, falling back to CSV with {len(csv_results['candidates'])} candidates")
+            return {
+                "candidates": csv_results["candidates"],
+                "mapping_source": "deterministic",
+                "needs_manual_review": csv_results.get("needs_review", False),
+                "manual_review_reason": csv_results.get("review_reason")
+                or "ICD API returned 0 results. Using CSV fallback.",
+                "english_translation": None,
+                "detailed_translation": detailed_term,
+            }
+
+        # No results from either source
+        print(f"❌ No results from ICD API or CSV")
+        return {
+            "candidates": [],
+            "mapping_source": "unknown",
+            "needs_manual_review": True,
+            "manual_review_reason": "No mapping found in ICD API or CSV.",
+            "english_translation": None,
+            "detailed_translation": detailed_term,
+        }
